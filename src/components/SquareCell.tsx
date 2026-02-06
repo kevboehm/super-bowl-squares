@@ -8,9 +8,6 @@ interface SquareCellProps {
   userId: number | null;
   userName: string | null;
   isCurrentUser: boolean;
-  rowNumber?: number;
-  colNumber?: number;
-  numbersAssigned: boolean;
   canSelect: boolean;
   onSelect: () => void;
   index?: number;
@@ -29,9 +26,6 @@ export default function SquareCell({
   userId,
   userName,
   isCurrentUser,
-  rowNumber,
-  colNumber,
-  numbersAssigned,
   canSelect,
   onSelect,
   index = 0,
@@ -74,11 +68,6 @@ export default function SquareCell({
           ${isTakenByOther ? "cursor-help" : ""}
         `}
       >
-        {numbersAssigned && rowNumber !== undefined && colNumber !== undefined ? (
-          <span className="opacity-80 leading-none">
-            {rowNumber}&times;{colNumber}
-          </span>
-        ) : null}
         {userName ? (
           <span className="truncate max-w-full px-px leading-none mt-px">
             {getInitials(userName)}

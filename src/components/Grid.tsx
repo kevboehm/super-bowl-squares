@@ -167,9 +167,6 @@ export default function Grid({
                         userId={sq.userId}
                         userName={sq.userName}
                         isCurrentUser={sq.userId === currentUserId}
-                        rowNumber={numbersAssigned ? displayRow : undefined}
-                        colNumber={numbersAssigned ? displayCol : undefined}
-                        numbersAssigned={numbersAssigned}
                         canSelect={canSelect}
                         onSelect={() => handleSquareClick(physicalRow, physicalCol)}
                         index={displayRow * 10 + displayCol}
