@@ -20,8 +20,6 @@ export default function JoinGamePage() {
   const [error, setError] = useState("");
   const [step, setStep] = useState<"name" | "quantity">("name");
   const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [quantity, setQuantity] = useState(0);
 
   useEffect(() => {
     if (!code) return;
@@ -47,14 +45,13 @@ export default function JoinGamePage() {
     if (name.trim()) setStep("quantity");
   };
 
-  const doJoin = async (squaresToBuy: number, emailValue: string) => {
+  const doJoin = async (squaresToBuy: number) => {
     const res = await fetch(`/api/games/${code}/join`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         name: name.trim(),
         squaresToBuy,
-        email: emailValue,
       }),
     });
     const data = await res.json();
@@ -74,14 +71,9 @@ export default function JoinGamePage() {
   };
 
   const handleJoinComplete = async (squaresToBuy: number) => {
-    const emailTrimmed = email.trim();
-    if (!emailTrimmed || !emailTrimmed.includes("@")) {
-      setError("Email is required");
-      return;
-    }
     try {
       setError("");
-      await doJoin(squaresToBuy, emailTrimmed);
+      await doJoin(squaresToBuy);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to join");
     }
@@ -154,20 +146,6 @@ export default function JoinGamePage() {
                 {error}
               </div>
             )}
-            <div className="mb-4">
-              <label className="block text-sm font-medium mb-1 text-slate-200">
-                Your Email
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                className="w-full px-4 py-3 rounded-xl border-2 border-white/20 bg-white/5 text-white placeholder-slate-400 focus:ring-2 focus:ring-[#69BE28] focus:border-transparent"
-                required
-              />
-              <p className="text-xs text-slate-400 mt-1">Required for logging back in</p>
-            </div>
             <QuantitySelector
               pricePerSquare={game.price_per_square}
               maxSquares={Math.min(100, game.availableSquares)}

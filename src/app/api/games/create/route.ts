@@ -15,17 +15,7 @@ export async function POST(request: NextRequest) {
       payoutQ3,
       payoutFinal,
       adminName,
-      email,
     } = body;
-
-    if (!email || typeof email !== "string" || !email.trim().includes("@")) {
-      return NextResponse.json(
-        { error: "Valid email is required" },
-        { status: 400 }
-      );
-    }
-
-    const emailVal = String(email).trim().toLowerCase();
 
     if (
       !name ||
@@ -75,10 +65,10 @@ export async function POST(request: NextRequest) {
     const gameId = (result as { lastInsertRowid: number }).lastInsertRowid;
 
     const insertUser = db.prepare(`
-      INSERT INTO users (name, game_id, is_admin, squares_to_buy, email)
-      VALUES (?, ?, 1, 0, ?)
+      INSERT INTO users (name, game_id, is_admin, squares_to_buy)
+      VALUES (?, ?, 1, 0)
     `);
-    const userResult = insertUser.run(String(adminName), gameId, emailVal);
+    const userResult = insertUser.run(String(adminName), gameId);
     const adminId = (userResult as { lastInsertRowid: number }).lastInsertRowid;
 
     db.prepare("UPDATE games SET admin_id = ? WHERE id = ?").run(adminId, gameId);

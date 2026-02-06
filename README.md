@@ -14,15 +14,10 @@ A mobile-optimized web app for playing Super Bowl squares with friends.
 
 ```bash
 npm install
-cp .env.example .env
 npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000)
-
-### Email Authentication (Required)
-
-Email is required for joining and creating games. Set up [Resend](https://resend.com) — add `RESEND_API_KEY` and `RESEND_FROM_EMAIL`. Free tier: 100 emails/day. Use `onboarding@resend.dev` for testing, or verify a domain for production. Set `NEXT_PUBLIC_APP_URL` (e.g. your Railway URL) so magic links work for login recovery.
 
 ## Scripts
 

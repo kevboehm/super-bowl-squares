@@ -50,9 +50,6 @@ export default function GamePage() {
   const [numbersAssigned, setNumbersAssigned] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [loginEmail, setLoginEmail] = useState("");
-  const [loginLoading, setLoginLoading] = useState(false);
-  const [magicLinkSent, setMagicLinkSent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const fetchSquares = useCallback(async () => {
@@ -94,26 +91,6 @@ export default function GamePage() {
     }
     refresh().catch(() => setError("Failed to load game")).finally(() => setLoading(false));
   }, [code, refresh]);
-
-  const handleSendMagicLink = async () => {
-    if (!loginEmail.trim()) return;
-    setLoginLoading(true);
-    setError("");
-    try {
-      const res = await fetch("/api/auth/send-magic-link", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: loginEmail.trim(), gameCode: code }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to send link");
-      setMagicLinkSent(true);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to send link");
-    } finally {
-      setLoginLoading(false);
-    }
-  };
 
   useGameSocket(code, refresh);
 
@@ -159,58 +136,18 @@ export default function GamePage() {
   if (!session) {
     return (
       <main className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-[#013369] p-4 flex flex-col items-center justify-center">
-        <div className="max-w-sm w-full space-y-4">
-          <h2 className="text-xl font-bold text-white text-center" style={{ fontFamily: "var(--font-bebas), system-ui, sans-serif" }}>
-            Log back in
+        <div className="max-w-sm w-full space-y-4 text-center">
+          <h2 className="text-xl font-bold text-white" style={{ fontFamily: "var(--font-bebas), system-ui, sans-serif" }}>
+            Join the game
           </h2>
-          <p className="text-slate-300 text-sm text-center">
-            Enter the email you used when joining or creating the game.
+          <p className="text-slate-300 text-sm">
+            You need to join this game to view and select squares.
           </p>
-          {error && (
-            <div className="bg-red-500/20 border border-red-500/50 text-red-200 px-4 py-2 rounded-xl text-sm">
-              {error}
-            </div>
-          )}
-          {magicLinkSent ? (
-            <div className="space-y-4 text-center">
-              <p className="text-slate-200">
-                Check your email — we sent a link to {loginEmail}
-              </p>
-              <p className="text-slate-400 text-sm">
-                Click the link in the email to log in. It expires in 1 hour.
-              </p>
-              <button
-                type="button"
-                onClick={() => { setMagicLinkSent(false); setError(""); }}
-                className="text-slate-400 text-sm hover:text-white"
-              >
-                Use different email
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <input
-                type="email"
-                value={loginEmail}
-                onChange={(e) => setLoginEmail(e.target.value)}
-                placeholder="you@example.com"
-                className="w-full px-4 py-3 rounded-xl border-2 border-white/20 bg-white/5 text-white placeholder-slate-400 focus:ring-2 focus:ring-[#69BE28] focus:border-transparent"
-              />
-              <button
-                type="button"
-                onClick={handleSendMagicLink}
-                disabled={loginLoading || !loginEmail.trim()}
-                className="w-full py-4 bg-[#69BE28] text-white font-bold rounded-xl hover:bg-[#5aa823] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                {loginLoading ? "Sending..." : "Send magic link"}
-              </button>
-            </div>
-          )}
           <Link
             href={`/join/${code}`}
-            className="block text-center text-[#69BE28] font-semibold underline underline-offset-2 text-sm"
+            className="inline-block py-4 px-8 bg-[#69BE28] text-white font-bold rounded-xl hover:bg-[#5aa823] transition-colors"
           >
-            Join as new player
+            Join game
           </Link>
         </div>
       </main>

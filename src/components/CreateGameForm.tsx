@@ -14,7 +14,6 @@ export default function CreateGameForm() {
   const [form, setForm] = useState({
     name: "",
     adminName: "",
-    email: "",
     pricePerSquare: "5",
     pctQ1: String(DEFAULT_PCT.q1),
     pctQ2: String(DEFAULT_PCT.q2),
@@ -56,7 +55,6 @@ export default function CreateGameForm() {
         body: JSON.stringify({
           name: form.name,
           adminName: form.adminName,
-          email: form.email,
           pricePerSquare: parseFloat(form.pricePerSquare),
           payoutQ1: payouts.q1,
           payoutQ2: payouts.q2,
@@ -127,19 +125,6 @@ export default function CreateGameForm() {
               className="w-full px-4 py-3 rounded-xl border border-white/20 bg-white/5 text-white placeholder-slate-400 focus:ring-2 focus:ring-[#69BE28] focus:border-transparent transition-all"
               required
             />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1 text-slate-200">Your Email</label>
-            <input
-              type="email"
-              value={form.email}
-              onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-              placeholder="you@example.com"
-              className="w-full px-4 py-3 rounded-xl border border-white/20 bg-white/5 text-white placeholder-slate-400 focus:ring-2 focus:ring-[#69BE28] focus:border-transparent transition-all"
-              required
-            />
-            <p className="text-xs text-slate-400 mt-1">Required for logging back in</p>
           </div>
 
           <div>

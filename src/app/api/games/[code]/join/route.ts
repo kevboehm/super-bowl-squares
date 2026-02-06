@@ -11,7 +11,7 @@ export async function POST(
   try {
     const { code } = await params;
     const body = await request.json();
-    const { name, squaresToBuy, email } = body;
+    const { name, squaresToBuy } = body;
 
     if (!name || squaresToBuy == null) {
       return NextResponse.json(
@@ -19,15 +19,6 @@ export async function POST(
         { status: 400 }
       );
     }
-
-    if (!email || typeof email !== "string" || !email.trim().includes("@")) {
-      return NextResponse.json(
-        { error: "Valid email is required" },
-        { status: 400 }
-      );
-    }
-
-    const normalizedEmail = String(email).trim().toLowerCase();
 
     const quantity = parseInt(String(squaresToBuy), 10);
     if (quantity < 1 || quantity > 100) {
@@ -67,10 +58,10 @@ export async function POST(
     }
 
     const insertUser = db.prepare(`
-      INSERT INTO users (name, game_id, is_admin, squares_to_buy, email)
-      VALUES (?, ?, 0, ?, ?)
+      INSERT INTO users (name, game_id, is_admin, squares_to_buy)
+      VALUES (?, ?, 0, ?)
     `);
-    const result = insertUser.run(String(name), game.id, quantity, normalizedEmail);
+    const result = insertUser.run(String(name), game.id, quantity);
     const userId = (result as { lastInsertRowid: number }).lastInsertRowid;
 
     return NextResponse.json({
