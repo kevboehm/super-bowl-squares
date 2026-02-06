@@ -1,14 +1,14 @@
 import Database from "better-sqlite3";
 import path from "path";
 
-const dbPath = path.join(process.cwd(), "data", "squares.db");
+const dataDir = process.env.DATA_DIR || path.join(process.cwd(), "data");
+const dbPath = path.join(dataDir, "squares.db");
 
 let db: Database.Database | null = null;
 
 export function getDb(): Database.Database {
   if (!db) {
     const fs = require("fs");
-    const dataDir = path.join(process.cwd(), "data");
     if (!fs.existsSync(dataDir)) {
       fs.mkdirSync(dataDir, { recursive: true });
     }

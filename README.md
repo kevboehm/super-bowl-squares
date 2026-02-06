@@ -63,6 +63,7 @@ To host so players can access from their phones:
    - New Project → Deploy from GitHub repo → select `kevboehm/super-bowl-squares`
    - Railway auto-detects the config from `railway.json`
    - Add a **Volume** (Settings → Volumes) and mount at `/data` for SQLite persistence
+   - Add env var **`DATA_DIR`** = `/data` (Settings → Variables) so the app uses the volume
    - Generate a domain (Settings → Networking → Generate Domain)
    - Deploy triggers automatically on each push to main
 
