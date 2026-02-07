@@ -174,12 +174,18 @@ export async function POST(
         );
       }
 
+      const userSelectedCountForDeselect = db
+        .prepare(
+          "SELECT COUNT(*) as count FROM squares WHERE game_id = ? AND user_id = ?"
+        )
+        .get(game.id, userId) as { count: number };
+
       db.prepare(
         "UPDATE squares SET user_id = NULL WHERE game_id = ? AND row_index = ? AND col_index = ?"
       ).run(game.id, row, col);
 
       // Update squares_to_buy when removing (e.g. 10 → 9)
-      const newCount = userSelectedCount.count - 1;
+      const newCount = userSelectedCountForDeselect.count - 1;
       if (newCount >= 1 && newCount < user.squares_to_buy) {
         db.prepare("UPDATE users SET squares_to_buy = ? WHERE id = ? AND game_id = ?").run(
           newCount,
