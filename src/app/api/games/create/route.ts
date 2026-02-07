@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb, createGameSquares } from "@/lib/db";
 import { generateGameCode } from "@/lib/game";
+import { normalizePhone } from "@/lib/phone";
 
 export const runtime = "nodejs";
 
@@ -15,7 +16,17 @@ export async function POST(request: NextRequest) {
       payoutQ3,
       payoutFinal,
       adminName,
+      adminPhone,
     } = body;
+
+    if (!adminPhone || typeof adminPhone !== "string" || !adminPhone.trim().replace(/\D/g, "")) {
+      return NextResponse.json(
+        { error: "Valid admin phone number is required" },
+        { status: 400 }
+      );
+    }
+
+    const normalizedAdminPhone = normalizePhone(adminPhone.trim());
 
     if (
       !name ||
@@ -65,10 +76,10 @@ export async function POST(request: NextRequest) {
     const gameId = (result as { lastInsertRowid: number }).lastInsertRowid;
 
     const insertUser = db.prepare(`
-      INSERT INTO users (name, game_id, is_admin, squares_to_buy)
-      VALUES (?, ?, 1, 0)
+      INSERT INTO users (name, game_id, is_admin, squares_to_buy, phone)
+      VALUES (?, ?, 1, 0, ?)
     `);
-    const userResult = insertUser.run(String(adminName), gameId);
+    const userResult = insertUser.run(String(adminName), gameId, normalizedAdminPhone);
     const adminId = (userResult as { lastInsertRowid: number }).lastInsertRowid;
 
     db.prepare("UPDATE games SET admin_id = ? WHERE id = ?").run(adminId, gameId);

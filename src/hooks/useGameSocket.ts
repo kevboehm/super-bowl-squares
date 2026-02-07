@@ -23,11 +23,13 @@ export function useGameSocket(
     socket.on("square-updated", handleUpdate);
     socket.on("game-started", handleUpdate);
     socket.on("picks-submitted", handleUpdate);
+    socket.on("winner-updated", handleUpdate);
 
     return () => {
       socket.off("square-updated", handleUpdate);
       socket.off("game-started", handleUpdate);
       socket.off("picks-submitted", handleUpdate);
+      socket.off("winner-updated", handleUpdate);
     };
   }, [socket, gameCode]);
 }

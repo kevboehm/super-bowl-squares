@@ -14,6 +14,7 @@ export default function CreateGameForm() {
   const [form, setForm] = useState({
     name: "",
     adminName: "",
+    adminPhone: "",
     pricePerSquare: "5",
     pctQ1: String(DEFAULT_PCT.q1),
     pctQ2: String(DEFAULT_PCT.q2),
@@ -55,6 +56,7 @@ export default function CreateGameForm() {
         body: JSON.stringify({
           name: form.name,
           adminName: form.adminName,
+          adminPhone: form.adminPhone,
           pricePerSquare: parseFloat(form.pricePerSquare),
           payoutQ1: payouts.q1,
           payoutQ2: payouts.q2,
@@ -125,6 +127,19 @@ export default function CreateGameForm() {
               className="w-full px-4 py-3 rounded-xl border border-white/20 bg-white/5 text-white placeholder-slate-400 focus:ring-2 focus:ring-[#69BE28] focus:border-transparent transition-all"
               required
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1 text-slate-200">Your Phone (Admin)</label>
+            <input
+              type="tel"
+              value={form.adminPhone}
+              onChange={(e) => setForm((f) => ({ ...f, adminPhone: e.target.value }))}
+              placeholder="555-123-4567"
+              className="w-full px-4 py-3 rounded-xl border border-white/20 bg-white/5 text-white placeholder-slate-400 focus:ring-2 focus:ring-[#69BE28] focus:border-transparent transition-all"
+              required
+            />
+            <p className="text-xs text-slate-400 mt-1">Used to log back in as admin</p>
           </div>
 
           <div>

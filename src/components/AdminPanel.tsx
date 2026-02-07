@@ -95,11 +95,16 @@ export default function AdminPanel({
             <p className="text-xs text-slate-500 mb-1 font-medium">Players</p>
             <ul className="text-sm space-y-1">
               {gameInfo.users
-                .filter((u) => u.squares_to_buy > 0)
+                .filter((u) => u.selectedCount > 0)
                 .map((u) => (
-                  <li key={u.name} className="text-slate-700">
-                    {u.name}: {u.selectedCount}/{u.squares_to_buy} selected
-                    {u.picksSubmitted ? " ✓" : ""}
+                  <li key={u.name} className="text-slate-700 flex items-center justify-between gap-2">
+                    <span>
+                      {u.name}: {u.selectedCount} square{u.selectedCount !== 1 ? "s" : ""}
+                      {u.picksSubmitted ? " ✓" : ""}
+                    </span>
+                    <span className="font-semibold text-slate-900 shrink-0">
+                      ${(u.selectedCount * gameInfo.price_per_square).toFixed(2)}
+                    </span>
                   </li>
                 ))}
             </ul>

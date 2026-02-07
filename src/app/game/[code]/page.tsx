@@ -5,6 +5,8 @@ import { useParams } from "next/navigation";
 import Grid from "@/components/Grid";
 import PayoutDisplay from "@/components/PayoutDisplay";
 import AdminPanel from "@/components/AdminPanel";
+import AdminAssignModal from "@/components/AdminAssignModal";
+import AdminWinnerModal from "@/components/AdminWinnerModal";
 import { useGameSocket } from "@/hooks/useGameSocket";
 import Link from "next/link";
 
@@ -28,6 +30,7 @@ type GameInfo = {
     squares_to_buy: number;
     selectedCount: number;
     picksSubmitted?: boolean;
+    is_admin?: number;
   }>;
 };
 
@@ -44,13 +47,25 @@ export default function GamePage() {
   const code = (params.code as string)?.toUpperCase();
   const [session, setSession] = useState<Session | null>(null);
   const [gameInfo, setGameInfo] = useState<GameInfo | null>(null);
-  const [grid, setGrid] = useState<Record<string, { userId: number | null; userName: string | null }>>({});
+  const [grid, setGrid] = useState<
+    Record<string, { userId: number | null; userName: string | null; winners?: string[] }>
+  >({});
   const [rowNumbers, setRowNumbers] = useState<number[] | null>(null);
   const [colNumbers, setColNumbers] = useState<number[] | null>(null);
   const [numbersAssigned, setNumbersAssigned] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [loginPhone, setLoginPhone] = useState("");
+  const [loginLoading, setLoginLoading] = useState(false);
+  const [selectedCellForAdmin, setSelectedCellForAdmin] = useState<{
+    row: number;
+    col: number;
+  } | null>(null);
+  const [selectedCellForWinner, setSelectedCellForWinner] = useState<{
+    row: number;
+    col: number;
+  } | null>(null);
 
   const fetchSquares = useCallback(async () => {
     if (!code) return;
@@ -65,7 +80,7 @@ export default function GamePage() {
 
   const fetchGameInfo = useCallback(async () => {
     if (!code) return;
-    const res = await fetch(`/api/games/${code}/info`);
+    const res = await fetch(`/api/games/${code}/info`, { cache: "no-store" });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
     setGameInfo(data);
@@ -124,6 +139,88 @@ export default function GamePage() {
     fetchGameInfo();
   };
 
+  const handleAdminCellClick = useCallback((row: number, col: number) => {
+    setSelectedCellForAdmin({ row, col });
+  }, []);
+
+  const handleAdminWinnerCellClick = useCallback((row: number, col: number) => {
+    setSelectedCellForWinner({ row, col });
+  }, []);
+
+  const handleAdminAssign = useCallback(
+    async (assignToUserId: number | null) => {
+      if (!selectedCellForAdmin || !session || !code) return;
+      const res = await fetch(`/api/games/${code}/admin/assign-square`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          adminId: session.userId,
+          row: selectedCellForAdmin.row,
+          col: selectedCellForAdmin.col,
+          assignToUserId,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to assign");
+      setError("");
+      await fetchSquares();
+      await fetchGameInfo();
+    },
+    [selectedCellForAdmin, session, code, fetchSquares, fetchGameInfo]
+  );
+
+  const handleAdminSetWinners = useCallback(
+    async (quarters: string[]) => {
+      if (!selectedCellForWinner || !session || !code) return;
+      const res = await fetch(`/api/games/${code}/admin/set-winner`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          adminId: session.userId,
+          row: selectedCellForWinner.row,
+          col: selectedCellForWinner.col,
+          quarters,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to set winners");
+      setError("");
+      await fetchSquares();
+    },
+    [selectedCellForWinner, session, code, fetchSquares]
+  );
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!loginPhone.trim() || !code) return;
+    setLoginLoading(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/games/${code}/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: loginPhone.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Login failed");
+
+      const newSession: Session = {
+        userId: data.userId,
+        gameId: data.gameId,
+        isAdmin: data.isAdmin,
+        name: data.name,
+        squaresToBuy: data.squaresToBuy,
+      };
+      localStorage.setItem(`game-${code}`, JSON.stringify(newSession));
+      setSession(newSession);
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Login failed");
+    } finally {
+      setLoginLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <main className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-[#013369] p-4 flex flex-col items-center justify-center">
@@ -136,18 +233,39 @@ export default function GamePage() {
   if (!session) {
     return (
       <main className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-[#013369] p-4 flex flex-col items-center justify-center">
-        <div className="max-w-sm w-full space-y-4 text-center">
-          <h2 className="text-xl font-bold text-white" style={{ fontFamily: "var(--font-bebas), system-ui, sans-serif" }}>
-            Join the game
+        <div className="max-w-sm w-full space-y-4">
+          <h2 className="text-xl font-bold text-white text-center" style={{ fontFamily: "var(--font-bebas), system-ui, sans-serif" }}>
+            Log back in
           </h2>
-          <p className="text-slate-300 text-sm">
-            You need to join this game to view and select squares.
+          <p className="text-slate-300 text-sm text-center">
+            Enter the phone number you used when joining or creating the game.
           </p>
+          {error && (
+            <div className="bg-red-500/20 border border-red-500/50 text-red-200 px-4 py-2 rounded-xl text-sm">
+              {error}
+            </div>
+          )}
+          <form onSubmit={handleLogin} className="space-y-4">
+            <input
+              type="tel"
+              value={loginPhone}
+              onChange={(e) => setLoginPhone(e.target.value)}
+              placeholder="555-123-4567"
+              className="w-full px-4 py-3 rounded-xl border-2 border-white/20 bg-white/5 text-white placeholder-slate-400 focus:ring-2 focus:ring-[#69BE28] focus:border-transparent"
+            />
+            <button
+              type="submit"
+              disabled={loginLoading || !loginPhone.trim()}
+              className="w-full py-4 bg-[#69BE28] text-white font-bold rounded-xl hover:bg-[#5aa823] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {loginLoading ? "Logging in..." : "Log in"}
+            </button>
+          </form>
           <Link
             href={`/join/${code}`}
-            className="inline-block py-4 px-8 bg-[#69BE28] text-white font-bold rounded-xl hover:bg-[#5aa823] transition-colors"
+            className="block text-center text-[#69BE28] font-semibold underline underline-offset-2 text-sm"
           >
-            Join game
+            Join as new player
           </Link>
         </div>
       </main>
@@ -158,17 +276,16 @@ export default function GamePage() {
 
   const selectedCount =
     Object.values(grid).filter((s) => s.userId === session.userId).length;
-  const squaresToBuy = session.squaresToBuy ?? 0;
   const currentUser = gameInfo.users?.find((u) => u.id === session.userId);
+  const squaresToBuy = currentUser?.squares_to_buy ?? session.squaresToBuy ?? 0;
   const picksSubmitted = currentUser?.picksSubmitted ?? false;
   const canSelect =
     gameInfo.status === "pending" &&
     !session.isAdmin &&
-    !picksSubmitted &&
-    selectedCount < squaresToBuy;
+    selectedCount < Math.max(squaresToBuy, selectedCount + 1);
 
   const handleSubmitPicks = async () => {
-    if (!session || !code || picksSubmitted || selectedCount !== squaresToBuy) return;
+    if (!session || !code || selectedCount !== squaresToBuy) return;
     setSubmitting(true);
     setError("");
     try {
@@ -179,7 +296,7 @@ export default function GamePage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to submit");
-      await fetchGameInfo();
+      await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to submit picks");
     } finally {
@@ -226,14 +343,20 @@ export default function GamePage() {
       {!session.isAdmin && gameInfo.status === "pending" && (
         <div className="my-2 space-y-2">
           {picksSubmitted ? (
-            <p className="text-sm text-center font-medium text-emerald-700 bg-emerald-50 py-2 px-4 rounded-lg">
-              Picks submitted ✓
+            <p className="text-sm text-center font-medium text-slate-600">
+              Picks submitted ✓ — tap a square to change your picks
             </p>
           ) : (
             <>
-              <p className="text-sm text-center font-medium text-slate-700">
-                Selected {selectedCount} of {squaresToBuy} squares
-              </p>
+              <div className="flex items-center justify-between py-2 px-4 bg-slate-100 rounded-xl">
+                <span className="text-sm font-medium text-slate-700">
+                  {selectedCount} square{selectedCount !== 1 ? "s" : ""} × $
+                  {gameInfo.price_per_square.toFixed(2)}
+                </span>
+                <span className="text-lg font-bold text-[#69BE28]">
+                  ${(selectedCount * gameInfo.price_per_square).toFixed(2)}
+                </span>
+              </div>
               {selectedCount === squaresToBuy && (
                 <button
                   type="button"
@@ -247,7 +370,7 @@ export default function GamePage() {
                       Submitting...
                     </span>
                   ) : (
-                    "Submit Picks"
+                    "Submit picks"
                   )}
                 </button>
               )}
@@ -263,18 +386,73 @@ export default function GamePage() {
       )}
 
       <div className="mt-6">
+        {session.isAdmin && gameInfo.status === "pending" && (
+          <p className="text-sm text-slate-500 mb-2">
+            Tap a square to assign or reassign it to a player.
+          </p>
+        )}
+        {session.isAdmin &&
+          (gameInfo.status === "started" || gameInfo.status === "completed") && (
+          <p className="text-sm text-slate-500 mb-2">
+            Tap a square to mark it as winner for Q1, Q2, Q3, or Final.
+          </p>
+        )}
         <Grid
           grid={grid}
           rowNumbers={rowNumbers}
           colNumbers={colNumbers}
           numbersAssigned={numbersAssigned}
           currentUserId={session.userId}
-          squaresToBuy={squaresToBuy}
+          squaresToBuy={Math.min(100, Math.max(squaresToBuy, selectedCount + 1))}
           selectedCount={selectedCount}
           canSelect={canSelect}
           onSelectSquare={handleSelectSquare}
+          isAdminEditMode={session.isAdmin && gameInfo.status === "pending"}
+          onAdminCellClick={
+            session.isAdmin && gameInfo.status === "pending"
+              ? handleAdminCellClick
+              : undefined
+          }
+          isAdminWinnerMode={
+            session.isAdmin &&
+            (gameInfo.status === "started" || gameInfo.status === "completed")
+          }
+          onAdminWinnerCellClick={
+            session.isAdmin &&
+            (gameInfo.status === "started" || gameInfo.status === "completed")
+              ? handleAdminWinnerCellClick
+              : undefined
+          }
+          gameStarted={
+            gameInfo.status === "started" || gameInfo.status === "completed"
+          }
         />
       </div>
+
+      {selectedCellForAdmin && (
+        <AdminAssignModal
+          row={selectedCellForAdmin.row}
+          col={selectedCellForAdmin.col}
+          currentOwner={
+            grid[`${selectedCellForAdmin.row}-${selectedCellForAdmin.col}`]?.userName ?? null
+          }
+          players={gameInfo.users ?? []}
+          onAssign={handleAdminAssign}
+          onClose={() => setSelectedCellForAdmin(null)}
+        />
+      )}
+
+      {selectedCellForWinner && (
+        <AdminWinnerModal
+          row={selectedCellForWinner.row}
+          col={selectedCellForWinner.col}
+          currentWinners={
+            grid[`${selectedCellForWinner.row}-${selectedCellForWinner.col}`]?.winners ?? []
+          }
+          onSetWinners={handleAdminSetWinners}
+          onClose={() => setSelectedCellForWinner(null)}
+        />
+      )}
     </main>
   );
 }

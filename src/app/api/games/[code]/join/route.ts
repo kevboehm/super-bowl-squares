@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { getTakenSquaresCount } from "@/lib/game";
+import { normalizePhone } from "@/lib/phone";
 
 export const runtime = "nodejs";
 
@@ -11,7 +12,7 @@ export async function POST(
   try {
     const { code } = await params;
     const body = await request.json();
-    const { name, squaresToBuy } = body;
+    const { name, squaresToBuy, phone } = body;
 
     if (!name || squaresToBuy == null) {
       return NextResponse.json(
@@ -19,6 +20,15 @@ export async function POST(
         { status: 400 }
       );
     }
+
+    if (!phone || typeof phone !== "string" || !phone.trim().replace(/\D/g, "")) {
+      return NextResponse.json(
+        { error: "Valid phone number is required" },
+        { status: 400 }
+      );
+    }
+
+    const normalizedPhone = normalizePhone(phone.trim());
 
     const quantity = parseInt(String(squaresToBuy), 10);
     if (quantity < 1 || quantity > 100) {
@@ -57,11 +67,21 @@ export async function POST(
       );
     }
 
+    const existingPhone = db
+      .prepare("SELECT id FROM users WHERE game_id = ? AND phone = ?")
+      .get(game.id, normalizedPhone);
+    if (existingPhone) {
+      return NextResponse.json(
+        { error: "This phone number is already registered for this game" },
+        { status: 400 }
+      );
+    }
+
     const insertUser = db.prepare(`
-      INSERT INTO users (name, game_id, is_admin, squares_to_buy)
-      VALUES (?, ?, 0, ?)
+      INSERT INTO users (name, game_id, is_admin, squares_to_buy, phone)
+      VALUES (?, ?, 0, ?, ?)
     `);
-    const result = insertUser.run(String(name), game.id, quantity);
+    const result = insertUser.run(String(name), game.id, quantity, normalizedPhone);
     const userId = (result as { lastInsertRowid: number }).lastInsertRowid;
 
     return NextResponse.json({

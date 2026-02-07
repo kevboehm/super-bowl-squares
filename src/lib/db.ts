@@ -96,6 +96,16 @@ function initSchema(database: Database.Database) {
     // Column may already exist
   }
 
+  // Migration: add winners column to squares (JSON array: ["Q1","Q2",...])
+  try {
+    const sqInfo = database.prepare("PRAGMA table_info(squares)").all() as Array<{ name: string }>;
+    if (!sqInfo.some((c) => c.name === "winners")) {
+      database.exec("ALTER TABLE squares ADD COLUMN winners TEXT DEFAULT '[]'");
+    }
+  } catch {
+    // Column may already exist
+  }
+
   database.exec(`
     CREATE TABLE IF NOT EXISTS magic_tokens (
       token TEXT PRIMARY KEY,

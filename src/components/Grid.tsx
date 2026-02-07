@@ -17,7 +17,10 @@ const containerVariants = {
 };
 
 interface GridProps {
-  grid: Record<string, { userId: number | null; userName: string | null }>;
+  grid: Record<
+    string,
+    { userId: number | null; userName: string | null; winners?: string[] }
+  >;
   rowNumbers: number[] | null;
   colNumbers: number[] | null;
   numbersAssigned: boolean;
@@ -26,7 +29,27 @@ interface GridProps {
   selectedCount: number;
   canSelect: boolean;
   onSelectSquare: (row: number, col: number) => void;
+  isAdminEditMode?: boolean;
+  onAdminCellClick?: (row: number, col: number) => void;
+  isAdminWinnerMode?: boolean;
+  onAdminWinnerCellClick?: (row: number, col: number) => void;
+  gameStarted?: boolean;
 }
+
+const PLAYER_COLORS = [
+  "#3b82f6", // blue
+  "#8b5cf6", // purple
+  "#ec4899", // pink
+  "#ef4444", // red
+  "#f97316", // orange
+  "#f59e0b", // amber
+  "#84cc16", // lime
+  "#14b8a6", // teal
+  "#06b6d4", // cyan
+  "#6366f1", // indigo
+  "#a855f7", // violet
+  "#22c55e", // green (different from current user)
+];
 
 export default function Grid({
   grid,
@@ -38,13 +61,38 @@ export default function Grid({
   selectedCount,
   canSelect,
   onSelectSquare,
+  isAdminEditMode = false,
+  onAdminCellClick,
+  isAdminWinnerMode = false,
+  onAdminWinnerCellClick,
+  gameStarted = false,
 }: GridProps) {
   const getSquare = useCallback(
     (row: number, col: number) => {
-      return grid[`${row}-${col}`] ?? { userId: null, userName: null };
+      return (
+        grid[`${row}-${col}`] ?? {
+          userId: null,
+          userName: null,
+          winners: [],
+        }
+      );
     },
     [grid]
   );
+
+  const userIdToColor = useMemo(() => {
+    if (!gameStarted) return new Map<number, string>();
+    const userIds = Array.from(
+      new Set(Object.values(grid).map((s) => s.userId).filter((id): id is number => id != null))
+    ).sort((a, b) => a - b);
+    const map = new Map<number, string>();
+    let colorIndex = 0;
+    for (const id of userIds) {
+      map.set(id, PLAYER_COLORS[colorIndex % PLAYER_COLORS.length]);
+      colorIndex++;
+    }
+    return map;
+  }, [grid, gameStarted]);
 
   const { displayRows, displayCols } = useMemo(() => {
     if (!rowNumbers || !colNumbers || !numbersAssigned) {
@@ -64,6 +112,14 @@ export default function Grid({
 
   const handleSquareClick = useCallback(
     (physicalRow: number, physicalCol: number) => {
+      if (isAdminWinnerMode && onAdminWinnerCellClick) {
+        onAdminWinnerCellClick(physicalRow, physicalCol);
+        return;
+      }
+      if (isAdminEditMode && onAdminCellClick) {
+        onAdminCellClick(physicalRow, physicalCol);
+        return;
+      }
       const sq = getSquare(physicalRow, physicalCol);
       if (sq.userId === currentUserId) {
         onSelectSquare(physicalRow, physicalCol);
@@ -73,7 +129,18 @@ export default function Grid({
         onSelectSquare(physicalRow, physicalCol);
       }
     },
-    [getSquare, currentUserId, selectedCount, squaresToBuy, canSelect, onSelectSquare]
+    [
+      isAdminWinnerMode,
+      onAdminWinnerCellClick,
+      isAdminEditMode,
+      onAdminCellClick,
+      getSquare,
+      currentUserId,
+      selectedCount,
+      squaresToBuy,
+      canSelect,
+      onSelectSquare,
+    ]
   );
 
   return (
@@ -135,7 +202,7 @@ export default function Grid({
                     border: numbersAssigned ? "2px solid #69BE28" : "1px solid #cbd5e1",
                   }}
                 >
-                  {numbersAssigned ? i : ""}
+                  {numbersAssigned ? i : "?"}
                 </div>
               ))}
 
@@ -151,7 +218,7 @@ export default function Grid({
                       border: numbersAssigned ? "2px solid #002244" : "1px solid #cbd5e1",
                     }}
                   >
-                    {numbersAssigned ? displayRow : ""}
+                    {numbersAssigned ? displayRow : "?"}
                   </div>
 
                   {/* Cells */}
@@ -166,10 +233,22 @@ export default function Grid({
                         col={physicalCol}
                         userId={sq.userId}
                         userName={sq.userName}
+                        winners={sq.winners ?? []}
                         isCurrentUser={sq.userId === currentUserId}
-                        canSelect={canSelect}
+                        canSelect={
+                          canSelect ||
+                          (isAdminEditMode && !!onAdminCellClick) ||
+                          (isAdminWinnerMode && !!onAdminWinnerCellClick)
+                        }
                         onSelect={() => handleSquareClick(physicalRow, physicalCol)}
                         index={displayRow * 10 + displayCol}
+                        isAdminEditMode={isAdminEditMode}
+                        isAdminWinnerMode={isAdminWinnerMode}
+                        playerColor={
+                          gameStarted && sq.userId != null
+                            ? userIdToColor.get(sq.userId)
+                            : undefined
+                        }
                       />
                     );
                   })}

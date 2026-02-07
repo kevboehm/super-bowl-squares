@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
+import { getTakenSquaresCount } from "@/lib/game";
 
 export const runtime = "nodejs";
 
@@ -26,7 +27,7 @@ export async function GET(
 
     const squares = db
       .prepare(
-        `SELECT s.row_index, s.col_index, s.user_id, u.name as user_name 
+        `SELECT s.row_index, s.col_index, s.user_id, s.winners, u.name as user_name 
          FROM squares s 
          LEFT JOIN users u ON s.user_id = u.id 
          WHERE s.game_id = ?
@@ -37,13 +38,27 @@ export async function GET(
       col_index: number;
       user_id: number | null;
       user_name: string | null;
+      winners: string | null;
     }>;
 
-    const grid: Record<string, { userId: number | null; userName: string | null }> = {};
+    const grid: Record<
+      string,
+      { userId: number | null; userName: string | null; winners: string[] }
+    > = {};
     squares.forEach((s) => {
+      let winners: string[] = [];
+      if (s.winners) {
+        try {
+          const parsed = JSON.parse(s.winners);
+          winners = Array.isArray(parsed) ? parsed : [];
+        } catch {
+          winners = [];
+        }
+      }
       grid[`${s.row_index}-${s.col_index}`] = {
         userId: s.user_id,
         userName: s.user_name,
+        winners,
       };
     });
 
@@ -109,13 +124,6 @@ export async function POST(
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    if (user.picks_submitted) {
-      return NextResponse.json(
-        { error: "Picks are locked. You cannot change your selection." },
-        { status: 400 }
-      );
-    }
-
     const currentSquare = db
       .prepare(
         "SELECT user_id FROM squares WHERE game_id = ? AND row_index = ? AND col_index = ?"
@@ -136,9 +144,11 @@ export async function POST(
         )
         .get(game.id, userId) as { count: number };
 
-      if (userSelectedCount.count >= user.squares_to_buy) {
+      const takenCount = getTakenSquaresCount(game.id);
+      const available = 100 - takenCount;
+      if (userSelectedCount.count >= available) {
         return NextResponse.json(
-          { error: `You can only select ${user.squares_to_buy} squares` },
+          { error: "No more squares available" },
           { status: 400 }
         );
       }
@@ -146,6 +156,16 @@ export async function POST(
       db.prepare(
         "UPDATE squares SET user_id = ? WHERE game_id = ? AND row_index = ? AND col_index = ?"
       ).run(userId, game.id, row, col);
+
+      // Update squares_to_buy when adding beyond initial amount (e.g. 10 → 11)
+      const newCount = userSelectedCount.count + 1;
+      if (newCount > user.squares_to_buy) {
+        db.prepare("UPDATE users SET squares_to_buy = ? WHERE id = ? AND game_id = ?").run(
+          newCount,
+          userId,
+          game.id
+        );
+      }
     } else if (action === "deselect") {
       if (currentSquare?.user_id !== userId) {
         return NextResponse.json(
@@ -157,9 +177,25 @@ export async function POST(
       db.prepare(
         "UPDATE squares SET user_id = NULL WHERE game_id = ? AND row_index = ? AND col_index = ?"
       ).run(game.id, row, col);
+
+      // Update squares_to_buy when removing (e.g. 10 → 9)
+      const newCount = userSelectedCount.count - 1;
+      if (newCount >= 1 && newCount < user.squares_to_buy) {
+        db.prepare("UPDATE users SET squares_to_buy = ? WHERE id = ? AND game_id = ?").run(
+          newCount,
+          userId,
+          game.id
+        );
+      }
     } else {
       return NextResponse.json({ error: "Invalid action" }, { status: 400 });
     }
+
+    // Unlock picks so user must re-submit
+    db.prepare("UPDATE users SET picks_submitted = 0 WHERE id = ? AND game_id = ?").run(
+      userId,
+      game.id
+    );
 
     try {
       const { getSocketServer } = await import("@/lib/socket-server-node");
